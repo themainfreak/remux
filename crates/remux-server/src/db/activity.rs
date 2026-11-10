@@ -31,6 +31,8 @@ impl ActivityLog {
         device_name: Option<&str>,
         details: Option<&str>,
     ) -> Result<()> {
+        // Stored and shown in the dashboard: mask credentials a URL in it may carry.
+        let details = details.map(crate::log_redact::redact);
         sqlx::query(
             "INSERT INTO activity_log (id, user_id, user_name, action, target_user_id, target_user_name, device_id, device_name, details) \
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -43,7 +45,7 @@ impl ActivityLog {
         .bind(target_user_name)
         .bind(device_id)
         .bind(device_name)
-        .bind(details)
+        .bind(details.as_deref())
         .execute(db)
         .await?;
         Ok(())
