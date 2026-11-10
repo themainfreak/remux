@@ -47,6 +47,7 @@ mod conversions;
 pub mod device_profile;
 mod errors;
 mod keyed_lock;
+pub mod log_redact;
 pub mod sdks {
     pub use remux_sdks::*;
 }
@@ -906,7 +907,8 @@ pub fn setup_logging(log_dir: Option<&std::path::Path>, otlp_endpoint: Option<&s
         .with_target(true)
         .with_line_number(true)
         .with_file(false)
-        .compact();
+        .compact()
+        .with_writer(log_redact::Redacting(std::io::stdout));
 
     let file_layer = log_dir.map(|dir| {
         let appender = tracing_appender::rolling::Builder::new()
@@ -922,7 +924,7 @@ pub fn setup_logging(log_dir: Option<&std::path::Path>, otlp_endpoint: Option<&s
             .with_line_number(true)
             .with_file(false)
             .compact()
-            .with_writer(appender)
+            .with_writer(log_redact::Redacting(appender))
     });
 
     // FmtSpan::CLOSE makes every span passing through a layer log its own
@@ -940,6 +942,7 @@ pub fn setup_logging(log_dir: Option<&std::path::Path>, otlp_endpoint: Option<&s
         .with_file(false)
         .with_span_events(fmt::format::FmtSpan::CLOSE)
         .compact()
+        .with_writer(log_redact::Redacting(std::io::stdout))
         .with_filter(
             tracing_subscriber::filter::Targets::new()
                 .with_target("remux_server::metadata_refresh", tracing::Level::TRACE),
