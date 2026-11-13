@@ -1065,6 +1065,7 @@ impl SourceRankingContext<'_> {
                 self.subtitle_mode,
                 self.explicit_subtitle_index,
                 self.max_bitrate,
+                allow_subtitle_extraction,
             );
             rank.decision_unverified = transcode_cost_tier(&pessimistic_reasons)
                 < transcode_cost_tier(&reasons);
@@ -3069,7 +3070,7 @@ mod tests {
         sources: &[MediaSourceInfo],
     ) -> Vec<String> {
         let mut sorted = sources.to_vec();
-        sorted.sort_by_cached_key(|source| std::cmp::Reverse(ranking.sort_key(source)));
+        sorted.sort_by_cached_key(|source| std::cmp::Reverse(ranking.sort_key(source, false)));
         sorted
             .into_iter()
             .filter_map(|source| source.name)
