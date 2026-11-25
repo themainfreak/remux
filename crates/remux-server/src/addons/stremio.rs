@@ -614,7 +614,11 @@ impl SubtitleAddon for StremioAddon {
                         .as_deref(),
                 );
                 SubtitleInfo {
-                    id: s.id,
+                    id: if s.id.is_empty() {
+                        s.url.clone()
+                    } else {
+                        s.id
+                    },
                     url: Some(crate::stream::StreamDescriptor::http(s.url)),
                     lang: s.lang,
                     is_forced,
@@ -2203,6 +2207,42 @@ mod tests {
 
         assert!(meta.is_none());
         anime_attempt.assert_hits(0);
+    }
+
+    #[tokio::test]
+    async fn subtitle_fetch_surfaces_eng_entry_without_id() {
+        let server = httpmock::MockServer::start();
+        let m = server.mock(|when, then| {
+            when.path("/subtitles/movie/tt1234567.json");
+            then.status(200)
+                .json_body(serde_json::json!({"subtitles": [{"lang": "eng", "url": "u"}]}));
+        });
+        let addon = StremioAddon {
+            addon_id: Uuid::new_v4(),
+            manifest_url: StremioManifestUrl::try_new(server.base_url()).unwrap(),
+            client: reqwest::Client::new(),
+            medias_cache: Default::default(),
+            failed: Default::default(),
+        };
+        let media = db::Media {
+            kind: db::MediaKind::Movie,
+            external_ids: db::ExternalIds {
+                imdb: db::NonEmptyString::try_new("tt1234567".to_string()).ok(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let pool = sqlx::SqlitePool::connect_lazy("sqlite::memory:").unwrap();
+        let subs = SubtitleAddon::subtitle_fetch(&addon, &media, &pool)
+            .await
+            .unwrap();
+        m.assert();
+        assert_eq!(subs.len(), 1);
+        assert_eq!(subs[0].lang.as_deref(), Some("eng"));
+        assert!(matches!(
+            subs[0].url,
+            Some(crate::stream::StreamDescriptor::Http { ref url, .. }) if url == "u"
+        );
     }
 
     fn episode_media(external_ids: db::ExternalIds) -> db::Media {

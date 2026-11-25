@@ -347,6 +347,8 @@ pub struct SubtitlesResponse {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Subtitle {
+    /// Optional on the wire: some addons (e.g. a minimal SRT provider) omit it.
+    #[serde(default)]
     pub id: String,
     pub url: String,
     pub sub_encoding: Option<String>,
